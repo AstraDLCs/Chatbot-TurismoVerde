@@ -11,9 +11,10 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich import print
 from tools_turism import TurismToolkit
+from dotenv import load_dotenv
 system_prompt = open("system_prompt.txt", "r").read()
 console = Console()
-
+load_dotenv()
 
 def create_agent(user: str = "user") -> Agent:
     session_id: Optional[str] = None

@@ -1,0 +1,5 @@
+typer
+agno
+groq
+sqlalchemy
+python-dotenv
