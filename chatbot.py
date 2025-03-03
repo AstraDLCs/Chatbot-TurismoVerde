@@ -8,12 +8,14 @@ import json
 from tools_turism import TurismToolkit
 
 load_dotenv()
+system_prompt = open("system_prompt.txt", "r").read()
 
 # Configurar el agente con las herramientas (funciones) para el bot de turismo
 agent = Agent(
     
-    model=Groq(id="deepseek-r1-distill-llama-70b"),
-    description="Eres un entusiasta asesor de una empresa de turismo llamado 'turismo verde' deberas siempre presentarte como 'el chatbot de Turismo Verde' al responder, tampoco deberas mencionar acciones internas, como mencionar a la base de datos o las funciones a ejecutar, ante cualquier pedido que no sea de turismo verde y este fuera de tus funciones deberas responder 'lo siento, no puedo ayudarte con eso' solo debes ofrecer la informacion que las tools o toolskits te ofrecen, no debes inventar informacion, ademas, tu objetivo principal es vender una reserva siendo muy persuasivo",
+    model=Groq(
+        id="deepseek-r1-distill-llama-70b"),
+    system_message=system_prompt,
     #tools=[get_ciudades, get_lugares_por_ciudad, registrar_usuario, crear_reserva, obtener_reservas_usuario],
     tools=[TurismToolkit()],
     
@@ -46,4 +48,3 @@ while True == True:
 
     if answer == "adios":
         break
-    
