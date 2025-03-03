@@ -40,7 +40,7 @@ def create_agent(user: str = "user") -> Agent:
         storage=agent_storage,
         tools=[TurismToolkit()],
         add_history_to_messages=True,
-        num_history_responses=5,
+        num_history_responses=7,
         markdown=True,
     )
 

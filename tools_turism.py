@@ -98,15 +98,33 @@ class TurismToolkit(Toolkit):
 
     def crear_reserva(self, usuario: str, lugar: str, fecha_reserva: str) -> str:
         """
-        Crea una reserva para un usuario en un lugar dado utilizando directamente los nombres,
-        ya que no se usarán más los IDs.
+        Crea una reserva para un usuario en un lugar dado.
+        Se obtienen los IDs del usuario y del lugar a partir de sus nombres, 
+        y se inserta la reserva usando estos IDs.
         """
         conn = None
         try:
             conn = sqlite3.connect("turismos.db")
             cursor = conn.cursor()
-            query = "INSERT INTO Reservas (usuario, lugar, fecha_reserva) VALUES (?, ?, ?)"
-            cursor.execute(query, (usuario, lugar, fecha_reserva))
+            # Obtener el ID del usuario
+            cursor.execute("SELECT id FROM Usuarios WHERE usuario = ?", (usuario,))
+            user_row = cursor.fetchone()
+            if not user_row:
+                logger.error(f"El usuario {usuario} no existe.")
+                return json.dumps({"error": f"El usuario {usuario} no existe."})
+            usuario_id = user_row[0]
+            
+            # Obtener el ID del lugar
+            cursor.execute("SELECT id FROM Lugares WHERE nombre = ?", (lugar,))
+            lugar_row = cursor.fetchone()
+            if not lugar_row:
+                logger.error(f"El lugar {lugar} no existe.")
+                return json.dumps({"error": f"El lugar {lugar} no existe."})
+            lugar_id = lugar_row[0]
+            
+            # Insertar la reserva
+            query = "INSERT INTO Reservas (usuario_id, lugar_id, fecha_reserva) VALUES (?, ?, ?)"
+            cursor.execute(query, (usuario_id, lugar_id, fecha_reserva))
             conn.commit()
             logger.info(f"Reserva creada para el usuario {usuario} en el lugar {lugar}.")
             return json.dumps({"mensaje": "Reserva creada exitosamente."})
@@ -119,18 +137,30 @@ class TurismToolkit(Toolkit):
 
     def obtener_reservas_usuario(self, usuario: str) -> str:
         """
-        Retorna las reservas realizadas por un usuario en formato JSON filtrado por nombre de usuario.
+        Retorna las reservas realizadas por un usuario en formato JSON.
+        Se obtiene el ID del usuario a partir del nombre y se unen las tablas Reservas y Lugares
+        para obtener el nombre del lugar y la fecha de la reserva.
         """
         conn = None
         try:
             conn = sqlite3.connect("turismos.db")
             cursor = conn.cursor()
+            # Obtener el ID del usuario
+            cursor.execute("SELECT id FROM Usuarios WHERE usuario = ?", (usuario,))
+            user_row = cursor.fetchone()
+            if not user_row:
+                logger.error(f"El usuario {usuario} no existe.")
+                return json.dumps({"error": f"El usuario {usuario} no existe."})
+            usuario_id = user_row[0]
+            
+            # Consultar las reservas del usuario uniendo con Lugares para obtener el nombre del lugar
             query = """
-                SELECT id, lugar, fecha_reserva
+                SELECT Reservas.id, Lugares.nombre, Reservas.fecha_reserva
                 FROM Reservas
-                WHERE usuario = ?
+                INNER JOIN Lugares ON Reservas.lugar_id = Lugares.id
+                WHERE Reservas.usuario_id = ?
             """
-            cursor.execute(query, (usuario,))
+            cursor.execute(query, (usuario_id,))
             rows = cursor.fetchall()
             reservas = [
                 {"id": row[0], "lugar": row[1], "fecha_reserva": row[2]}
