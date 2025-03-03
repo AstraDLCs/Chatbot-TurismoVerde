@@ -5,18 +5,18 @@ from agno.utils.log import logger
 
 class TurismToolkit(Toolkit):
     def __init__(self):
-        # Cambiamos el nombre a "turism" y registramos las funciones.
+        # Se registra el toolkit con el nombre "tools_turism" y se añaden las funciones.
         super().__init__(name="tools_turism")
         self.register(self.get_ciudades)
         self.register(self.get_lugares_por_ciudad)
         self.register(self.registrar_usuario)
         self.register(self.crear_reserva)
         self.register(self.obtener_reservas_usuario)
+        self.register(self.verificar_cuenta)
 
     def get_ciudades(self) -> str:
         """
         Retorna la lista de ciudades registradas en la base de datos en formato JSON.
-        Se utiliza una consulta parametrizada (similar a PDO) para seguridad.
         """
         conn = None
         try:
@@ -40,7 +40,6 @@ class TurismToolkit(Toolkit):
     def get_lugares_por_ciudad(self, ciudad_nombre: str) -> str:
         """
         Retorna la lista de lugares de una ciudad específica en formato JSON.
-        Se une la tabla Lugares con Ciudades y se utiliza una consulta parametrizada.
         """
         conn = None
         try:
@@ -73,7 +72,7 @@ class TurismToolkit(Toolkit):
             if conn:
                 conn.close()
 
-    def registrar_usuario(self, usuario: str, correo: str, contrasena: str) -> str:
+    def registrar_usuario(self, usuario: str, contrasena: str) -> str:
         """
         Registra un nuevo usuario en la base de datos y retorna el resultado en formato JSON.
         Se utiliza una consulta parametrizada para evitar inyecciones SQL.
@@ -82,14 +81,14 @@ class TurismToolkit(Toolkit):
         try:
             conn = sqlite3.connect("turismos.db")
             cursor = conn.cursor()
-            query = "INSERT INTO Usuarios (usuario, correo, contrasena) VALUES (?, ?, ?)"
-            cursor.execute(query, (usuario, correo, contrasena))
+            query = "INSERT INTO Usuarios (usuario, contrasena) VALUES (?, ?)"
+            cursor.execute(query, (usuario, contrasena))
             conn.commit()
             logger.info(f"Usuario {usuario} registrado exitosamente.")
             return json.dumps({"mensaje": f"Usuario {usuario} registrado exitosamente."})
         except sqlite3.IntegrityError:
-            logger.error("El usuario o correo ya existe.")
-            return json.dumps({"error": "El usuario o correo ya existe."})
+            logger.error("El usuario ya existe.")
+            return json.dumps({"error": "El usuario ya existe."})
         except sqlite3.Error as e:
             logger.error(f"Error al registrar usuario {usuario}: {e}")
             return json.dumps({"error": str(e)})
@@ -97,52 +96,76 @@ class TurismToolkit(Toolkit):
             if conn:
                 conn.close()
 
-    def crear_reserva(self, usuario_id: int, lugar_id: int, fecha_reserva: str) -> str:
+    def crear_reserva(self, usuario: str, lugar: str, fecha_reserva: str) -> str:
         """
-        Crea una reserva para un usuario en un lugar dado y retorna el resultado en formato JSON.
-        Se utiliza una consulta parametrizada para mayor seguridad.
+        Crea una reserva para un usuario en un lugar dado utilizando directamente los nombres,
+        ya que no se usarán más los IDs.
         """
         conn = None
         try:
             conn = sqlite3.connect("turismos.db")
             cursor = conn.cursor()
-            query = "INSERT INTO Reservas (usuario_id, lugar_id, fecha_reserva) VALUES (?, ?, ?)"
-            cursor.execute(query, (usuario_id, lugar_id, fecha_reserva))
+            query = "INSERT INTO Reservas (usuario, lugar, fecha_reserva) VALUES (?, ?, ?)"
+            cursor.execute(query, (usuario, lugar, fecha_reserva))
             conn.commit()
-            logger.info(f"Reserva creada para usuario {usuario_id} en lugar {lugar_id}.")
+            logger.info(f"Reserva creada para el usuario {usuario} en el lugar {lugar}.")
             return json.dumps({"mensaje": "Reserva creada exitosamente."})
         except sqlite3.Error as e:
-            logger.error(f"Error al crear reserva para usuario {usuario_id}: {e}")
+            logger.error(f"Error al crear reserva para usuario {usuario}: {e}")
             return json.dumps({"error": str(e)})
         finally:
             if conn:
                 conn.close()
 
-    def obtener_reservas_usuario(self, usuario_id: int) -> str:
+    def obtener_reservas_usuario(self, usuario: str) -> str:
         """
-        Retorna las reservas realizadas por un usuario en formato JSON.
-        Se realiza una unión entre Reservas y Lugares para obtener información relevante.
+        Retorna las reservas realizadas por un usuario en formato JSON filtrado por nombre de usuario.
         """
         conn = None
         try:
             conn = sqlite3.connect("turismos.db")
             cursor = conn.cursor()
             query = """
-                SELECT Reservas.id, Lugares.nombre, Reservas.fecha_reserva
+                SELECT id, lugar, fecha_reserva
                 FROM Reservas
-                INNER JOIN Lugares ON Reservas.lugar_id = Lugares.id
-                WHERE Reservas.usuario_id = ?
+                WHERE usuario = ?
             """
-            cursor.execute(query, (usuario_id,))
+            cursor.execute(query, (usuario,))
             rows = cursor.fetchall()
             reservas = [
                 {"id": row[0], "lugar": row[1], "fecha_reserva": row[2]}
                 for row in rows
             ]
-            logger.info(f"Se obtuvieron reservas para el usuario {usuario_id}.")
+            logger.info(f"Se obtuvieron reservas para el usuario {usuario}.")
             return json.dumps({"reservas": reservas})
         except sqlite3.Error as e:
-            logger.error(f"Error al obtener reservas para el usuario {usuario_id}: {e}")
+            logger.error(f"Error al obtener reservas para el usuario {usuario}: {e}")
+            return json.dumps({"error": str(e)})
+        finally:
+            if conn:
+                conn.close()
+
+    def verificar_cuenta(self, usuario: str, contrasena: str) -> str:
+        """
+        Verifica si una cuenta existe en la base de datos y retorna si es válida junto con el rol asignado.
+        Si la cuenta no existe o la contraseña es incorrecta, retorna que la cuenta no existe.
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect("turismos.db")
+            cursor = conn.cursor()
+            query = "SELECT rol FROM Usuarios WHERE usuario = ? AND contrasena = ?"
+            cursor.execute(query, (usuario, contrasena))
+            row = cursor.fetchone()
+            if row:
+                rol = row[0]
+                logger.info(f"Cuenta {usuario} verificada exitosamente, rol: {rol}.")
+                return json.dumps({"valido": True, "rol": rol})
+            else:
+                logger.info(f"La cuenta {usuario} no existe o la contraseña es incorrecta.")
+                return json.dumps({"valido": False, "mensaje": "La cuenta no existe."})
+        except sqlite3.Error as e:
+            logger.error(f"Error al verificar la cuenta {usuario}: {e}")
             return json.dumps({"error": str(e)})
         finally:
             if conn:
