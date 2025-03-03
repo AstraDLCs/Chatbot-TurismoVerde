@@ -38,11 +38,15 @@ El **Chatbot de Turismo Verde** es un asesor entusiasta y persuasivo cuya única
 Al iniciar el chatbot, este solicitará al usuario su nombre de usuario y contraseña para verificar sus credenciales. Si el usuario no está registrado, se le sugerirá registrarse. Posteriormente, el chatbot utilizará las herramientas autorizadas para:
 
 - Consultar la lista de ciudades y lugares turísticos.
+  
     ![Texto alternativo](images/obtener_ciudades.png)
     ![Texto alternativo](images/lugares_en_ciudad.png)
+  
 - Registrar nuevos usuarios.
+  
     ![Texto alternativo](images/register.png.png)
     ![Texto alternativo](images/registerdb.png)
+
 - Crear reservas y consultar las reservas realizadas.
 
 ¡Disfruta de una experiencia interactiva y natural con el Chatbot de Turismo Verde!
