@@ -44,7 +44,7 @@ Al iniciar el chatbot, este solicitará al usuario su nombre de usuario y contra
   
 - Registrar nuevos usuarios.
   
-    ![Texto alternativo](images/register.png.png)
+    ![Texto alternativo](images/register.png)
     ![Texto alternativo](images/registerdb.png)
 
 - Crear reservas y consultar las reservas realizadas.
