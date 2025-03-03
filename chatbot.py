@@ -1,50 +1,86 @@
+import json
+from typing import Optional
+
+import typer
 from agno.agent import Agent
 from agno.models.groq import Groq
-from agno.agent import Agent, RunResponse
-from typing import Iterator
-from dotenv import load_dotenv
-import sqlite3
-import json
+from storage_usage import load_social_media_storage
+from rich.console import Console
+from rich.json import JSON
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich import print
 from tools_turism import TurismToolkit
-
-load_dotenv()
 system_prompt = open("system_prompt.txt", "r").read()
+console = Console()
 
-# Configurar el agente con las herramientas (funciones) para el bot de turismo
-agent = Agent(
-    
-    model=Groq(
-        id="deepseek-r1-distill-llama-70b"),
-    system_message=system_prompt,
-    #tools=[get_ciudades, get_lugares_por_ciudad, registrar_usuario, crear_reserva, obtener_reservas_usuario],
-    tools=[TurismToolkit()],
-    
-    markdown=True
-)
 
-# Ejemplos de consultas que el bot podría responder:
-# agent.print_response("¿Qué ciudades están disponibles para turismo?", stream=True)
-# agent.print_response("quiero registrarme en su pagina, mi nombre de usuario sera Astra, mi correo sera @astra@astra.com y mi contraseña sera: contraseña, ademas, dime las ciudades disponibles que tienes", stream=True)
-# agent.print_response("Registra un nuevo usuario con nombre 'juan', correo 'juan@example.com' y contraseña 'secreto'", stream=True)
-# agent.print_response("Crea una reserva para el usuario con id 1 en el lugar con id 2 para la fecha 2025-03-01", stream=True)
-# agent.print_response("¿Cuáles son las reservas del usuario con id 1?", stream=True)
+def create_agent(user: str = "user") -> Agent:
+    session_id: Optional[str] = None
 
-# Get the response in a variable
-""" while True == True:
-    answer = input("USER: ")
-    run_response: Iterator[RunResponse] = agent.run(answer, stream=True)
+    # Preguntar si se desea iniciar una nueva sesión o continuar una existente
+    new_session = typer.confirm("¿Deseas iniciar una nueva sesión?")
 
-    full_response = ""
-    for chunk in run_response:
-        full_response += chunk.content
+    # Utilizar el almacenamiento (en este ejemplo, la función load_social_media_storage)
+    agent_storage = load_social_media_storage()
 
-    print("BOT:" + full_response)
-    if answer == "adios":
-        break """
+    # Si no se desea una nueva sesión, buscar las sesiones existentes para este usuario
+    if not new_session:
+        existing_sessions = agent_storage.get_all_session_ids(user)
+        if existing_sessions:
+            session_id = existing_sessions[0]  # O elegir según convenga
 
-while True == True:
-    answer = input("USER: ")
-    agent.print_response(answer, stream=True)
+    # Crear el agente especificando (si se dispone) el session_id para retomar el historial
+    agent = Agent(
+        user_id=user,
+        session_id=session_id,
+        system_message=system_prompt,
+        name="ChatBot de Turismo-Verde",
+        model=Groq(id="deepseek-r1-distill-llama-70b"),
+        storage=agent_storage,
+        tools=[TurismToolkit()],
+        add_history_to_messages=True,
+        num_history_responses=5,
+        markdown=True,
+    )
 
-    if answer == "adios":
-        break
+    if session_id is None:
+        session_id = agent.session_id
+        print(f"Iniciada nueva sesión: {session_id}\n")
+    else:
+        print(f"Continuando sesión: {session_id}\n")
+
+    return agent
+
+
+def print_messages(agent: Agent):
+    """Imprime el historial actual de chat en un panel formateado."""
+    messages = [
+        m.model_dump(include={"role", "content"}) for m in agent.memory.messages
+    ]
+    console.print(
+        Panel(
+            JSON(json.dumps(messages, indent=4)),
+            title=f"Historial de chat (session_id: {agent.session_id})",
+            expand=True,
+        )
+    )
+
+
+def main(user: str = "user"):
+    agent = create_agent(user)
+
+    print("¡Chat con el agente!")
+    exit_on = ["exit", "quit", "bye", "adios", "hasta luego"]
+    while True:
+        message = Prompt.ask(f"[bold] :sunglasses: {user} [/bold]")
+        if message.lower() in exit_on:
+            break
+
+        # El agente procesa el mensaje y muestra la respuesta (con stream y markdown)
+        agent.print_response(message=message, stream=True, markdown=True)
+        #print_messages(agent)
+
+
+if __name__ == "__main__":
+    typer.run(main())
