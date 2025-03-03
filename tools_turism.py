@@ -8,7 +8,7 @@ class TurismToolkit(Toolkit):
         # Se registra el toolkit con el nombre "tools_turism" y se añaden las funciones.
         super().__init__(name="tools_turism")
         self.register(self.get_ciudades)
-        self.register(self.get_lugares_por_ciudad)
+        self.register(self.get_lugares_en_ciudad)
         self.register(self.registrar_usuario)
         self.register(self.crear_reserva)
         self.register(self.obtener_reservas_usuario)
@@ -37,9 +37,11 @@ class TurismToolkit(Toolkit):
             if conn:
                 conn.close()
 
-    def get_lugares_por_ciudad(self, ciudad_nombre: str) -> str:
+    def get_lugares_en_ciudad(self, ciudad: str) -> str:
         """
         Retorna la lista de lugares de una ciudad específica en formato JSON.
+        Realiza la búsqueda de forma insensible a mayúsculas para asegurar coincidencias
+        independientemente del uso de mayúsculas o minúsculas en el nombre.
         """
         conn = None
         try:
@@ -49,9 +51,9 @@ class TurismToolkit(Toolkit):
                 SELECT Lugares.id, Lugares.nombre, Lugares.precio, Lugares.moneda, Lugares.descripcion
                 FROM Lugares
                 INNER JOIN Ciudades ON Lugares.ciudad_id = Ciudades.id
-                WHERE Ciudades.nombre = ?
+                WHERE LOWER(Ciudades.nombre) = ?
             """
-            cursor.execute(query, (ciudad_nombre,))
+            cursor.execute(query, (ciudad.lower(),))
             rows = cursor.fetchall()
             lugares = [
                 {
@@ -63,10 +65,10 @@ class TurismToolkit(Toolkit):
                 }
                 for row in rows
             ]
-            logger.info(f"Se obtuvieron lugares para la ciudad {ciudad_nombre}.")
+            logger.info(f"Se obtuvieron lugares para la ciudad {ciudad}.")
             return json.dumps({"lugares": lugares})
         except sqlite3.Error as e:
-            logger.error(f"Error al obtener lugares para {ciudad_nombre}: {e}")
+            logger.error(f"Error al obtener lugares para {ciudad}: {e}")
             return json.dumps({"error": str(e)})
         finally:
             if conn:
@@ -99,7 +101,7 @@ class TurismToolkit(Toolkit):
     def crear_reserva(self, usuario: str, lugar: str, fecha_reserva: str) -> str:
         """
         Crea una reserva para un usuario en un lugar dado.
-        Se obtienen los IDs del usuario y del lugar a partir de sus nombres, 
+        Se obtienen los IDs del usuario y del lugar a partir de sus nombres (usando búsqueda insensible a mayúsculas),
         y se inserta la reserva usando estos IDs.
         """
         conn = None
@@ -114,8 +116,8 @@ class TurismToolkit(Toolkit):
                 return json.dumps({"error": f"El usuario {usuario} no existe."})
             usuario_id = user_row[0]
             
-            # Obtener el ID del lugar
-            cursor.execute("SELECT id FROM Lugares WHERE nombre = ?", (lugar,))
+            # Obtener el ID del lugar usando el nombre (búsqueda insensible a mayúsculas)
+            cursor.execute("SELECT id FROM Lugares WHERE LOWER(nombre) = ?", (lugar.lower(),))
             lugar_row = cursor.fetchone()
             if not lugar_row:
                 logger.error(f"El lugar {lugar} no existe.")
@@ -129,11 +131,12 @@ class TurismToolkit(Toolkit):
             logger.info(f"Reserva creada para el usuario {usuario} en el lugar {lugar}.")
             return json.dumps({"mensaje": "Reserva creada exitosamente."})
         except sqlite3.Error as e:
-            logger.error(f"Error al crear reserva para usuario {usuario}: {e}")
+            logger.error(f"Error al crear reserva para el usuario {usuario}: {e}")
             return json.dumps({"error": str(e)})
         finally:
             if conn:
                 conn.close()
+
 
     def obtener_reservas_usuario(self, usuario: str) -> str:
         """
