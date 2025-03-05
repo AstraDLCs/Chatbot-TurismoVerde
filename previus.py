@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import sqlite3
 import json
 from tools_turism import TurismToolkit
+from storage_usage import load_social_media_storage
 
 load_dotenv()
 system_prompt = open("system_prompt.txt", "r").read()
@@ -14,9 +15,9 @@ system_prompt = open("system_prompt.txt", "r").read()
 agent = Agent(
     
     model=Groq(
-        id="deepseek-r1-distill-llama-70b"),
+    id="deepseek-r1-distill-llama-70b"),
     system_message=system_prompt,
-    
+
     #tools=[get_ciudades, get_lugares_por_ciudad, registrar_usuario, crear_reserva, obtener_reservas_usuario],
     tools=[TurismToolkit()],
     
